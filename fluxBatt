@@ -1,0 +1,35 @@
+#!/bin/bash
+export DISPLAY=":0.0"
+LASTCOLOR=$(cat /tmp/fluxColor)
+
+CUR=$(grep "remaining capacity:" /proc/acpi/battery/BAT1/state | awk -F' ' '{print $3}')
+CAP=$(grep "design capacity:" /proc/acpi/battery/BAT1/info | awk -F' ' '{print $3/100}')
+
+PERC=$(echo "$CUR / $CAP" | bc)
+if [ $PERC -gt 100 ]
+then
+	PERC=100
+fi
+
+if [ $PERC -gt 52 ]
+then
+        GREEN=255
+        RED=$(echo "255-((5*$PERC)-255)+6" | bc)
+else
+        GREEN=$(echo "(5*$PERC)-25" | bc)
+        RED=255
+fi
+
+COLOR=$(printf '%x%x00\n' $RED $GREEN)
+
+if [ "$COLOR" != "$LASTCOLOR" ]
+then
+	logger "$PERC - new: $COLOR old: $LASTCOLOR"
+	mv ~/.fluxbox/styles/battery/theme.cfg ~/.fluxbox/styles/battery/theme.cfgBK
+	sed "s/$LASTCOLOR/$COLOR/g" ~/.fluxbox/styles/battery/theme.cfgBK > ~/.fluxbox/styles/battery/theme.cfg
+	fluxbox-remote reconfig
+	echo $COLOR > /tmp/fluxColor
+	exit
+else
+	exit
+fi
